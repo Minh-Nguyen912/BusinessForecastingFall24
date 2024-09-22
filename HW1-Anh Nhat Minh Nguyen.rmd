@@ -1,0 +1,306 @@
+title:"Homework 1"
+
+author:"Anh Nhat Minh Nguyen"
+
+date:"September 19, 2024"
+
+output: html_document
+
+```{r}
+options(repos = c(CRAN = "https://cran.r-project.org"))
+install.packages("readxl")  
+library(readxl)  
+```
+
+```{r}
+# Import Excel file, exclude first-row-as-name option
+survey <- read_excel("Typical_Employee_Survey_Data.xlsx",,col_names = FALSE)
+head(survey)
+```
+```{r}
+# 1.Add headers
+colnames(survey)<-c("Age","Gender","Sastisfaction_level","Job_characteristic","Exp","Promotion_likelihood","Decision","Budget_decision","Pride","Loyalty","Relationship")
+head(survey)
+```
+```{r}
+# 2.Five-point summary - Age
+#Only age and years of experience are considered numerical variables.
+fivenum(survey$Age)
+boxplot.stats(survey$Age)
+boxplot_age <- boxplot(survey$Age,
+     main = "Employee age distribution",
+     ylab = "Age",
+     col = "lightgreen" )
+```
+```{r}
+# 2.Five-point summary - Years of experience
+fivenum(survey$Exp)
+boxplot.stats(survey$Exp)
+boxplot_exp <- boxplot(survey$Exp,
+     main = "Experience distribution",
+     ylab = "Years",
+     col = "lightgreen" )
+```
+```{r}
+# 3.Convert columns into factors
+
+#Gender, Preferred job characteristics, and budgetary decisions: Factors have no order. Use "factor" instead of "as.factor" to rename values 
+survey$Gender <- factor(survey$Gender,
+                           levels = c(1,2),
+                           labels = c("M","F"))
+
+survey$Job_characteristic <- factor(survey$Job_characteristic,
+                                    levels = c(1,2,3,4,5),
+                                    labels = c("Income","Job security",
+                                               "Flexible hours","Advancement",
+                                               "Enjoyment"))
+survey$Budget_decision <- factor(survey$Budget_decision,
+                                 levels = c(1,2),
+                                 labels = c("Yes","No"))
+
+#Other categorical variables: the factors have order
+survey$Sastisfaction_level <- factor(survey$Sastisfaction_level,
+                                     levels = c(1,2,3,4),
+                                     labels = c("Very S","Moderately S","Liltle DS","Very DS"),
+                                     ordered = TRUE)
+
+survey$Promotion_likelihood <- factor(survey$Promotion_likelihood,
+                                     levels = c(1,2,3,4,5),
+                                     labels = c("Very likely","Likely","Not sure","Unlikely","Very unlikely"),
+                                     ordered = TRUE)
+
+survey$Decision <- factor(survey$Decision,
+                          levels = c(1,2,3,4),
+                          labels = c("Always","Much",
+                                     "Sometimes","Never"),
+                          ordered = TRUE)
+
+survey$Pride <- factor(survey$Pride,
+                       levels = c(1,2,3,4),
+                       labels = c("Very proud","Somewhat proud",
+                                  "Indifferent","Not proud at all"),
+                       ordered = TRUE)
+
+survey$Loyalty <- factor(survey$Loyalty,
+                         levels = c(1,2,3,4,5),
+                         labels = c("Very likely","Likely","Not sure","Unlikely","Very unlikely"),
+                         ordered = TRUE)
+
+survey$Relationship <- factor(survey$Relationship,
+                              levels = c(1,2,3,4,5),
+                              labels = c("Very good","Good","So so",
+                                         "Bad","Very bad"),
+                              ordered = TRUE)
+                                 
+
+```
+
+```{r}
+#4.Plot
+
+#Numeric variables: show distributions by histograms and box plots
+
+#Age
+hist_age <- hist(survey$Age,
+     main = "Employee age distribution",
+     xlab = "Age",
+     ylab = "Counts",
+     col = "lightgreen",
+     )
+text(hist_age$mids, hist_age$counts,
+     labels = hist_age$counts,
+     pos = 1,
+     col = "black")
+
+boxplot_age <- boxplot(survey$Age,
+     main = "Employee age distribution",
+     ylab = "Age",
+     col = "lightgreen" )
+
+#Years of experience
+hist_exp <- hist(survey$Exp,
+     main = "Experience distribution",
+     xlab = "Years",
+     ylab = "Counts",
+     col = "lightgreen",
+     ylim = c(0,90),
+     )
+text(hist_exp$mids, hist_exp$counts,
+     labels = hist_exp$counts,
+     pos = 3,
+     col = "black",
+     )
+boxplot_exp <- boxplot(survey$Exp,
+     main = "Experience distribution",
+     ylab = "Years",
+     col = "lightgreen" )
+
+```
+
+```{r}
+#4.Plot
+
+#Categorical variables: Use bar plots
+#For each plot: Use table() function to get the counts before plotting
+
+#Gender
+bar_gender <- barplot(table(survey$Gender),
+        main = "Gender distribution",
+        xlab = "Gender",
+        ylab = "Counts",
+        col = "lightyellow")
+
+text(bar_gender, table(survey$Gender),
+     labels = table(survey$Gender),
+     pos = 1,
+     col = "black")
+
+#Preferred job characteristics 
+bar_chac <- barplot(table(survey$Job_characteristic),
+        main = "Preferred job characteristics",
+        xlab = "Characteristics",
+        ylab = "Counts",
+        col = "lightyellow",
+        cex.names = 0.5)
+
+text(bar_chac, table(survey$Job_characteristic),
+     labels = table(survey$Job_characteristic),
+     pos = 1,
+     col = "black",
+     )
+
+
+#Satisfaction level
+bar_sas <- barplot(table(survey$Sastisfaction_level),
+        main = "Satisfaction level distribution",
+        xlab = "Levels",
+        ylab = "Counts",
+        col = "lightyellow")
+
+text(bar_sas, table(survey$Sastisfaction_level),
+     labels = table(survey$Sastisfaction_level),
+     pos = 1,
+     col = "black")
+
+#Promotion likelihood
+bar_pro <- barplot(table(survey$Promotion_likelihood),
+        main = "Promotion likelihood",
+        xlab = "Levels",
+        ylab = "Counts",
+        col = "lightyellow",
+        cex.names = 0.5)
+
+text(bar_pro, table(survey$Promotion_likelihood),
+     labels = table(survey$Promotion_likelihood),
+     pos = 1,
+     col = "black")
+
+#Decision making
+bar_dec <- barplot(table(survey$Decision),
+        main = "Frequency of decision-making allowed by employer",
+        xlab = "Levels",
+        ylab = "Counts",
+        col = "lightyellow",
+        cex.names = 0.5)
+
+text(bar_dec, table(survey$Decision),
+     labels = table(survey$Decision),
+     pos = 1,
+     col = "black")
+
+#Budgetary decisions
+bar_bud <- barplot(table(survey$Budget_decision),
+        main = "Budgetary decision-making participation",
+        xlab = "Yes/No",
+        ylab = "Counts",
+        col = "lightyellow")
+
+text(bar_bud, table(survey$Budget_decision),
+     labels = table(survey$Budget_decision),
+     pos = 1,
+     col = "black")
+
+#Pride level
+bar_pride <- barplot(table(survey$Pride),
+        main = "Pride levels",
+        xlab = "Levels",
+        ylab = "Counts",
+        col = "lightyellow",
+        cex.names = 0.5)
+
+text(bar_pride, table(survey$Pride),
+     labels = table(survey$Pride),
+     pos = 1,
+     col = "black")
+
+#Job loyalty
+bar_loyal <- barplot(table(survey$Loyalty),
+        main = "Likelihood of staying when offered a higher-paid job",
+        xlab = "Likelihood",
+        ylab = "Counts",
+        col = "lightyellow",
+        cex.names = 0.5)
+
+text(bar_loyal, table(survey$Loyalty),
+     labels = table(survey$Loyalty),
+     pos = 1,
+     col = "black")
+
+#Relationship
+bar_rela <- barplot(table(survey$Relationship),
+        main = "Relationship levels with colleages and coworkers",
+        xlab = "Levels",
+        ylab = "Counts",
+        col = "lightyellow",
+        cex.names = 0.5)
+
+text(bar_rela, table(survey$Relationship),
+     labels = table(survey$Relationship),
+     pos = 1,
+     col = "black")
+
+```
+```{r}
+#5.Scatter plots
+
+# Age & Years of experience
+
+#Insights: For employees whose ages fall between 20 and 45, there is no significant difference in their experience, at around 0 - 15 years. For the 45-over 60 age group, employees' experience tends to increase linearly with age.
+
+plot(survey$Age, survey$Exp,
+     main = "Scatter plot of Age vs Years of experience",
+     xlab = "Age",
+     ylab = "Years",
+     col = 'blue')
+
+#Years of experience & budget decision making
+
+#Insights: "Yes" has more outliers and a slightly higher IQR ends, indicating budgetary decisions are made more by people who joined the company longer or seniors.
+
+plot(survey$Budget_decision, survey$Exp,
+     main = "Relationship between Years of experience & budget decision making",
+     xlab = "Yes/No",
+     ylab = "Years",
+     col = 'blue')
+
+#Years of experience & pride levels
+
+#Insights: People with longer years of working for the company tend to somewhat proud or very proud about their workplace. Also, people who with under 3 years of working tend to be very proud. Lastly, people with a decent amount of time at the company (4-9 years) show no interest.
+plot(survey$Pride, survey$Exp,
+     main = "Relationship between Years of experience & Pride levels",
+     xlab = "Pride levels",
+     ylab = "Years",
+     col = 'blue',
+     cex.axis = 0.5)
+
+#Pride levels & Likelihood of staying when offered a higher-paid job: Use a mosaic plot for these two categorical variables
+
+#Insights: Pride levels are not consistent with years of experience. Surprisingly, very proud employees are most likely to leave for a higher-paid job. Those are, as discussed above, are juniors. By contrast, people who are slightly proud of the company or are not proud of the company are less likely to leave. Those are mostly intermediate and juniors.
+mosaicplot(~ Pride + Loyalty, data = survey,
+           main = "Mosaic Plot of Pride vs Loyalty",
+           xlab = "Pride levels",
+           ylab = "Likelihood",
+           col = 'blue',
+           cex.axis = 0.4)
+```
+

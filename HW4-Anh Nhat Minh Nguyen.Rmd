@@ -1,0 +1,192 @@
+```{r}
+# Import the csv file into R
+library(readr)
+library(forecast)
+library(lubridate)
+birth_data <- read_csv('aggregated_data.csv')
+
+#Convert birth_data into a time series
+ts_birth <- ts(birth_data$Records, start = c(1985, 1), frequency = 12)
+
+ts_birth
+```
+```{r}
+# Plot time series and ACF
+# The ACF suggest the data has a seasonal pattern
+plot(ts_birth, main = 'Birth record time series',
+     xlab = 'Time',
+     ylab = 'Records')
+
+Acf(ts_birth, , main = 'Birth record ACF',
+     xlab = 'Lag',
+     ylab = 'ACF')
+```
+```{r}
+# Create and explain forecasts 
+
+# Method 1: Mean
+mean_forecast <- meanf(ts_birth,10)
+
+mean_forecast
+attributes(mean_forecast)
+plot(mean_forecast, main = 'Birth record forecasts from mean',
+     xlab = 'Time',
+     ylab = 'Records')
+
+accuracy_mean <- accuracy(mean_forecast)
+
+#The 'Mean' method takes the mean value of all past data as the forecast for the next 5 months. The forecast comes with 2 confidence intervals, 80% and 95%, whose values indicate the percentage by which the future actual values are expected to fall into.
+```
+
+```{r}
+# Method 2: Naive forecast
+naive_forecast <- naive(ts_birth,10)
+
+naive_forecast
+attributes(naive_forecast)
+plot(naive_forecast, main = 'Birth record forecasts - Naive method',
+     xlab = 'Time',
+     ylab = 'Records')
+
+accuracy_naive <- accuracy(naive_forecast)
+
+#The naive forecast takes the most recent obvervation (December 2015) as the future forecasts. One note is that the 80% and 95% confidence intervals expand as the forecasts go further into the future, suggesting the uncertainty increases as we forecast further.
+```
+
+```{r}
+# Method 3: Random walk
+rwf_forecast <- rwf(ts_birth,10)
+
+rwf_forecast
+attributes(rwf_forecast)
+plot(rwf_forecast, main = 'Birth record forecasts - Random walk method',
+     xlab = 'Time',
+     ylab = 'Records')
+
+accuracy_rwf <- accuracy(rwf_forecast)
+#The results and methodology for the random walk method is very similar to the naive method.
+```
+
+```{r}
+# Method 4: Seasonal naive
+
+snaive_forecast <- snaive(ts_birth,10)
+
+snaive_forecast
+attributes(snaive_forecast)
+plot(snaive_forecast, main = 'Birth record forecasts - Seasonal naive method',
+     xlab = 'Time',
+     ylab = 'Records')
+
+accuracy_snaive <- accuracy(snaive_forecast)
+
+#The seasonal naive forecast for future months take the observation of that month in the previous year (e.g. forecast for Jan 2016 equals the obervation for Jan 2015). This is because the nature of the time series is monthly data.
+```
+
+```{r}
+# Method 5.1: Moving average, order = 5
+MA5_forecast <- ma(ts_birth,order = 5)
+
+MA5_forecast
+attributes(MA5_forecast)
+plot(MA5_forecast, main = 'Birth record forecasts - MA(5) method',
+     xlab = 'Time',
+     ylab = 'Records')
+
+accuracy_MA5 <- accuracy(MA5_forecast,ts_birth)
+
+#The moving average forecast with order 5 for a point equals the average of 5 points: 2 previous obervations, that point's obervation, and 2 subsequent obervations (e.g. Forecast of Sep 2014 equals the average of obervations for July, Aug, Sep, Oct, and Nov of 2014).This is also called the centered moving average method.
+```
+```{r}
+# Method 5.2: Moving average, order = 9
+#Moving average, order = 9
+MA9_forecast <- ma(ts_birth,order = 9)
+
+MA9_forecast
+attributes(MA9_forecast)
+plot(MA9_forecast, main = 'Birth record forecasts - MA(9) method',
+     xlab = 'Time',
+     ylab = 'Records')
+
+accuracy_MA9 <- accuracy(MA9_forecast,ts_birth)
+#Explanation for this method is similar to that for the MA(5) method. For MA(9), 4 previous values, the current value, and 4 subsequent values of one point are used for calculation.
+```
+
+```{r}
+#Decomposition
+ets_forecast <- ets(ts_birth)
+attributes(ets_forecast)
+plot(ets_forecast)
+
+forecast_ets <- forecast.ets(ets_forecast,h=10)
+
+#The ets function analyzes the ts_birth data to show three aspects of the data: the level, the trend, and the seasonality. 
+```
+
+```{r}
+# Method 6: Holtwinters
+HW_forecast <- HoltWinters(ts_birth)
+attributes(HW_forecast)
+plot(HW_forecast, main = 'Birth record forecasts - Holtwinters method',
+     xlab = 'Time',
+     ylab = 'Records')
+HW_forecast$alpha
+HW_forecast$beta
+HW_forecast$gamma
+
+accuracy_HW <- accuracy(HW_forecast$fitted,ts_birth)
+
+#Creat forecasts for 10 periods using the Holtwinter model
+HW <- forecast(HW_forecast,h=10)
+
+#The HoltWinter method analyzes the data regarding three aspects: level, trend, and seasonality. The HW model takes those aspects into accountability for the future forecasts. Paremeters for the ts_birth data shows that the alpha, beta, and gamma are 0.21, 0.13, and 0.14, respectively, indicating that not much of the level, trend, and seasonal nature of the data was taken into the forecast.
+```
+```{r}
+#Plot time series and forecast models in one chart
+plot(mean_forecast, main='Time series and forecasts for all models', xlab='Time', ylab='Records')
+lines(rwf_forecast$mean,col="green")
+lines(naive_forecast$mean,col="green")
+lines(snaive_forecast$mean,col="black")
+lines(MA5_forecast,col="darkgreen")
+lines(MA9_forecast,col="darkblue")
+lines(forecast_ets$mean,col='pink')
+lines(HW$mean,col='red')
+```
+
+```{r}
+#I chose the MAPE accuracy metrics for the dataset because the data has a seasonal pattern. MAPE helps assess the deviation from the actual data in % instead of in the absolute value. This helps the errors from the peaks of seasons not be exaggerated. 
+mape_mean <- accuracy_mean['Training set','MAPE']
+mape_naive <-accuracy_naive['Training set','MAPE']
+mape_rwf <-accuracy_rwf['Training set','MAPE']
+mape_snaive <-accuracy_snaive['Training set','MAPE']
+mape_ma5 <-accuracy_MA5['Test set','MAPE']
+mape_MA9 <-accuracy_MA9['Test set','MAPE']
+mape_HW <-accuracy_HW['Test set','MAPE']
+
+mape_values <- c(mape_mean, mape_naive, mape_rwf, mape_snaive, mape_ma5, mape_MA9, mape_HW)
+
+mape_labels <- c("Mean", "Naive", "RWF", "Snaive", "MA5", "MA9", "HoltWinters")
+
+barplot(
+  mape_values,
+  names.arg = mape_labels,
+  col = "skyblue",
+  main = "MAPE of Forecasting Methods",
+  ylab = "MAPE (%)",
+  ylim = c(0, max(mape_values) * 1.1)  
+)
+
+text(
+  x = seq_along(mape_values),            
+  y = mape_values,                        
+  labels = round(mape_values, 2),        
+  pos = 3,
+  cex = 0.7,
+  col = "black"                           
+)
+```
+```{r}
+#The bar chart suggests the Seasonal Naive method and the HoltWinters Method have the lowest MAPE, at 1.96% and 1.29% respectively. The two forecast methods take into account the seasonal pattern of the data, resulting in lower MAPE values. Therefore, those are the two most appropriate models to be used for the Birth Record data set. 
+```
+
+

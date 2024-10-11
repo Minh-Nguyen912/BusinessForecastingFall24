@@ -1,0 +1,56 @@
+```{r}
+# Import the csv file into R
+library(readr)
+library(forecast)
+birth_data <- read_csv('aggregated_data.csv')
+
+#Convert birth_data into a time series
+ts_birth <- ts(birth_data$Records, start = c(1985, 1), frequency = 12)
+```
+```{r}
+# ACF plot suggests the birth time series has a seasonal pattern
+plot(ts_birth, main = 'Birth record time series',
+     xlab = 'Time',
+     ylab = 'Records')
+
+Acf(ts_birth, , main = 'Birth record ACF',
+     xlab = 'Lag',
+     ylab = 'ACF')
+
+```
+```{r}
+# Perform decomposition
+decom_birth <- decompose(ts_birth)
+plot(decom_birth)
+attributes(decom_birth)
+
+Acf(decom_birth$random, main ='Residual ACF plot')
+decom_birth$type
+
+# the decompose function indicates that the birth time series is an additive time series. The ACF plot suggests that the residuals are random
+
+```
+```{r}
+# Adjust seasonality
+
+#When adjusted for seasonality, the resulting time series fall in the middle of the original time series, indicating constant variability nature of the additive model.
+s_adj <- seasadj(decom_birth)
+plot(ts_birth,
+      main = 'Seasonally adjusted time series',
+      xlab = 'Time',
+      ylab = 'Birth records')
+lines(s_adj, col='red')
+```
+```{r}
+# Forecast using decomposition
+# The decomposition method, surprisingly, results in a low MAPE (1.2%) for the birth data, compared to the MAPE for other forecast methods in the previous homework.
+stl_birth <- stl(ts_birth, s.window='periodic')
+stl_forecast <- forecast(stl_birth, h=10)
+plot(stl_forecast,
+     main = 'Forecast using decomposition',
+     xlab = 'Year',
+     ylab = 'Birth records')
+
+summary(stl_forecast)
+```
+

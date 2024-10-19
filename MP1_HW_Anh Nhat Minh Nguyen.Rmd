@@ -1,0 +1,130 @@
+```{r}
+library(readxl)
+library(readr)
+library(forecast)
+library(lubridate)
+
+file <- read_csv('flightVolume.csv')
+```
+```{r}
+# Q1,2,3,4,5,6
+
+# Create time series
+ts_reslong <- ts(file$reslong, start=c(1976,1),frequency=12)
+
+plot(ts_reslong)
+
+# ACF
+Acf(ts_reslong,lag.max = 48)
+
+# Decomposition
+
+decomp <- decompose(ts_reslong)
+plot(decomp)
+```
+```{r}
+# The monthly time series starts from January 1976 and ends in June 2017. The plotting suggests clear patterns throughout different periods:
+# - 1980 - 1990: seasonal and stable trend
+# - 1990 - 2000: seasonal and slightly upward trend
+# - 2000 - end: seasonal and fluctuated trend
+
+# The guesses are justified by the Acf and the decomposition model:
+# - The time series has a clear annual seasonal pattern, with high ACF scores at lags 12, 24, 36,...
+# - The decomposition shows the underlying trend, which is similar to my above prediction.
+
+# The most relevant part to input in the forecast models is the time series from 2000 onwards since the forecast will not be affected by the stable and increasing trend that had ended.
+
+# I pick the MAPE as the accuracy measure for this time series as the MAPE is based on percentage, not absolute values. Given the seasonal pattern of the data, errors at the peaks might be exaggerated when using absolute values.
+ts_reslong_subset <- window(ts_reslong, start=c(2000,1))
+
+plot(ts_reslong_subset)
+length(ts_reslong_subset)
+```
+```{r}
+# Q7,8,9: create forecasts and rank methods by MAPE
+
+# Naive
+naive_f <- naive(ts_reslong_subset,12)
+naive_ac <- accuracy(naive_f)
+naive_mape <- naive_ac['Training set', 'MAPE']
+
+# Mean
+mean_f <- meanf(ts_reslong_subset,12)
+mean_ac <- accuracy(mean_f)
+mean_mape <- mean_ac['Training set', 'MAPE']
+
+# Simple exponential smoothing
+ses <- HoltWinters(ts_reslong_subset,beta = FALSE,gamma=FALSE)
+ses_ac <- accuracy(ses$fitted,ts_reslong_subset)
+ses_mape <- ses_ac['Test set', 'MAPE']
+ses_f <- forecast(ses,h=12)
+
+# Holt Winters
+HW <- HoltWinters(ts_reslong_subset)
+HW_f <- forecast(HW,h=12)
+HW_ac <- accuracy(HW$fitted,ts_reslong_subset)
+HW_mape <- HW_ac['Test set','MAPE']
+
+
+
+# Decomposition: STL
+stl_model <- stl(ts_reslong_subset,s.window='periodic')
+stl_f <- forecast(stl_model,h=12)
+stl_ac <- accuracy(stl_f$fitted,ts_reslong_subset)
+stl_mape <- stl_ac['Test set', 'MAPE']
+
+
+# Decomposition: Decompose
+decomp_model <- decompose(ts_reslong_subset)
+```
+
+```{r}
+# create a bar plot for mape values
+mape_values <-c(naive_mape,mean_mape,ses_mape,HW_mape,stl_mape)
+
+mape_labels <- c("Naive","Mean","SES","HW","STL")
+
+mape_plot<- barplot(mape_values,
+        names.arg=mape_labels,
+        col='lightgreen',
+        main = "MAPE of Models",
+        xlab = "Method",
+        ylab = "MAPE")
+text(x=mape_values,
+     y=NULL,
+     labels=round(mape_values,2))
+```
+```{r}
+# Interpretation: 
+# - The comparison of MAPE values shows that HoltWinters and STL perform significantly better than the other models. This may due to the fact that HoltWinters and STL take into account both the trend and seasonality of the time series for forecast.
+```
+
+```{r}
+# Q10: Creat and plot forecasts using HoltWinters and STL
+
+# HoltWinters:
+HW_f <- forecast(HW,h=12)
+plot(HW_f)
+
+# STL
+stl_f <- forecast(stl_model,h=12)
+plot(stl_f)
+
+# I am more confident about the forecasts given by HoltWinters for the next 12 periods. Based on the plot, HoltWinters creates new forecast with the seasonal pattern the resembles the most recent data pattern from 2012 onwards. By contrast, forecasts by STL show more variation with the seasonal peak (Jan 2018) being much higher than the previous peaks. Also, confidence intervals for STL are higher than those for HW, suggesting higher uncertainty in the forecast. 
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

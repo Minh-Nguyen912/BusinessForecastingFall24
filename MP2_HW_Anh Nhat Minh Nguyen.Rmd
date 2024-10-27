@@ -1,0 +1,142 @@
+```{r}
+library(readxl)
+library(readr)
+library(forecast)
+library(lubridate)
+library(fpp)
+library(TTR)
+
+file <- read_csv('insurance.csv')
+```
+
+```{r}
+# Select the quotes column as the time series for analysis
+data <- file$Quotes
+ts_quotes <- ts(data, start=c(2002,1), frequency = 12)
+plot(ts_quotes)
+
+#The whole plot for the time series shows much variations in the data and little trend and seasonality. Since the 3rd quarter for 2003, the data shows repeated fluctuations with an increase trend. I decided to use the time series from October 2003 for forecast.
+
+ts_quotes_subset <- window(ts_quotes, start =c(2003,10))
+```
+```{r}
+# Q1,2,3,4,5,6
+
+# Create time series
+plot(ts_quotes_subset, ylab ='quotes')
+
+# Create ACF
+Acf(ts_quotes_subset, lag.max = 56)
+
+# Decomposition
+decomp <- decompose(window(ts_quotes, start =c(2003,5)))
+plot(decomp)
+
+# Pure plotting of the subset indicates the data has much variation and has an upward trend.  
+
+# This can be verified by the Acf plot and decomposition. Overall, the data shows no seasonality pattern. The decomposition suggests that the data has an upward trend. Note that the data used for decomposition if from May 2003 in order to satisfy the minimum data volume for the decomposition function.The randomness of that data also shows a zig-zag pattern, which is worth considering.
+
+# I chose the MAE as the accuracy measure to show the magnitude of the errors. This would help select the best model that can handle the high variation of this time series.
+```
+
+```{r}
+# Q7,8,9: create forecasts and rank methods by MAE
+
+# Naive
+naive_f <- naive(ts_quotes_subset,12)
+naive_ac <- accuracy(naive_f)
+naive_mae <- naive_ac['Training set', 'MAE']
+naive_me <- naive_ac['Training set', 'ME']
+
+# Mean
+mean_f <- meanf(ts_quotes_subset,12)
+mean_ac <- accuracy(mean_f)
+mean_mae <- mean_ac['Training set', 'MAE']
+mean_me <- mean_ac['Training set', 'ME']
+
+# Simple exponential smoothing
+ses <- HoltWinters(ts_quotes_subset,beta = FALSE,gamma=FALSE)
+ses_ac <- accuracy(ses$fitted,ts_quotes_subset)
+ses_mae <- ses_ac['Test set', 'MAE']
+ses_me <- ses_ac['Test set', 'ME']
+ses_f <- forecast(ses,h=12)
+
+# Holt Winters
+#HW <- HoltWinters(ts_quotes_subset)
+#HW_f <- forecast(HW,h=12)
+#HW_ac <- accuracy(HW$fitted,ts_quotes_subset)
+#HW_mae <- HW_ac['Test set','MAE']
+
+# Decomposition: STL
+#stl_model <- stl(ts_quotes_subset,s.window='periodic')
+#stl_f <- forecast(stl_quotes,h=12)
+#stl_ac <- accuracy(stl_f$fitted,ts_quotes_subset)
+#stl_mae <- stl_ac['Test set', 'MAE']
+
+#The time seires selected is too short to be used for HoltWinters and Decomposition.
+
+# Simple moving average (n=3)
+sma_f <- SMA(ts_quotes_subset,n=3)
+sma_ac <- accuracy(sma_f,ts_quotes_subset)
+sma_mae <-sma_ac['Test set','MAE'] 
+sma_me <-sma_ac['Test set','ME']
+
+```
+
+```{r}
+# create a bar plot for mae values
+mae_values <-c(naive_mae,mean_mae,ses_mae,sma_mae)
+
+mae_labels <- c("Naive","Mean","SES","Simple MA")
+
+mae_plot<- barplot(mae_values,
+        names.arg=mae_labels,
+        col='lightgreen',
+        main = "MAE of Models",
+        xlab = "Method",
+        ylab = "MAE")
+text(x=mae_values,
+     y=NULL,
+     labels=round(mae_values,2))
+```
+```{r}
+# The comparison of MAE values shows no signigicant difference in the performances of the models. The Simple Moving Average performs slightly better than the other. In my opinion, since the data has much variations, there is not much to tell from the MAE comparison of the models or we cannot decide the best models merely by the MAE values.
+```
+
+```{r}
+# Try another accuracy measure: ME
+# create a bar plot for me values
+me_values <-c(naive_me,mean_me,ses_me,sma_me)
+
+me_labels <- c("Naive","Mean","SES","Simple MA")
+
+me_plot<- barplot(me_values,
+        names.arg=me_labels,
+        col='lightblue',
+        main = "ME of Models",
+        xlab = "Method",
+        ylab = "ME")
+text(x=me_values,
+     y=NULL,
+     labels=round(me_values,2))
+
+# The comparison on Mean Errors indicates that the Mean method is the best, while Simple moving average becomes the worst. Performances for Naive and SES still stays in the middle. I picked the exponential smoothing method to produce further forecast since its performance is stable for both the MAE and ME comparisons.
+```
+
+```{r}
+# Use exponential smoothing to create forecats for the next 12 periods
+
+ses_f12 <- forecast(ses_f,h=12)
+plot(ses_f12,
+     main ="Forecast from Simple Exponential Smoothing")
+```
+
+
+
+
+
+
+
+
+
+

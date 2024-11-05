@@ -1,0 +1,295 @@
+```{r}
+# import necessary libraries
+library(readxl)
+library(readr)
+library(forecast)
+library(lubridate)
+library(TTR)
+```
+
+```{r}
+# import data
+file <- read_csv('sales.csv', col_names =FALSE)
+
+# convert the data into a time series (start = January 2020,end = August 2024). This is a monthly dataset.
+
+ts_sales <- ts(file$X2,start=c(2020,1), frequency=12)
+ts_sales
+
+```
+```{r}
+# plot and inference
+# time series plot: Sales data experienced a steady growth from 2020 to the middle of 2022, after which the sales for this product showed  fluctuations. Despite the fluctuations, the underlying trend seemed to be an upward trend since the middle of 2022.
+
+plot(ts_sales, xlab="Time",ylab="Sales")
+
+# ACF: ACF values decrease with the number of lags, suggesting a trendy patter in the time series.
+Acf(ts_sales)
+```
+```{r}
+# central tendency
+# for min-1st Q - median - 3rd Q - Max: use fivenum()
+# for the mean: use mean()
+
+fivenum(ts_sales)
+mean(ts_sales)
+
+# box plot
+boxplot(ts_sales, main="Sales box plot",ylab="Sales volume")
+
+# The central tendency analysis shows that the mean is larger than the median and data density is bigger for the 1st and 2nd quartiles, suggesting that the sales data is right-skewed. This makes sense regarding the plot as the sales data reached the high values not until the middle of 2022. 
+```
+```{r}
+# decomposition
+
+# plot the decomposition
+decomp <- decompose(ts_sales)
+plot(decomp)
+attributes(decomp)
+
+decomp$seasonal
+decomp$type
+
+# the decomposition analysis suggests that the data is seasonal by month, which means data for a certain month of the year throughout the years are highly correlated. 
+# Seasonality indices are shown in the result:
+# Jan:-1637.61383 (lowest)
+# Feb:-1562.74459
+# Mar:1068.72820
+# April:-57.46680
+# May:87.83035
+# Jun:2154.71713 (highest)
+# Jul:753.35870
+# Aug:-814.83057
+# Sep:1059.15192
+# Oct:-1259.70934
+# Nov:-1565.32609
+# Dec:1773.90491
+
+# The decomposition is additive.
+# Over the year, sales are typically the highest in June and lowest in January.Months that are also low in sales are February and November and months that are also high in sales are March, September, and November. 
+
+# My speculation is the buying pattern for healthcare products has a three-month period (sales are high in months 3,6,9, and 12)
+
+# seasonally adjusted plot
+s_adj <- seasadj(decomp)
+plot(ts_sales,
+      main = 'Seasonally adjusted time series',
+      xlab = 'Time',
+      ylab = 'Sales volume')
+lines(s_adj, col='red')
+
+# The plot suggests that seasonality does have big fluctuations in the sales volume, or sales volumes do not differ much when adjusted for seasonality.
+```
+```{r}
+# Naive method
+
+# The most relevant data for forecasting is from June 2022, when the data started to show fluctuations.
+
+ts_sales_subset <- window(ts_sales, start =c(2022,6))
+
+# naive forecast output
+naive_f <- naive(ts_sales_subset,12)
+#naive_f <- naive(ts_sales,12)
+naive_f
+
+# forecasts for the next 12 periods equals the data for the last period (August 2024): 10151.93
+
+# residual analysis
+
+# residual plot and histogram
+plot(naive_f$residuals, xlab="Time", ylab="Residuals")
+hist(naive_f$residuals, xlab="Residuals", ylab="Frequency")
+
+# The time series for naive residuals shows a fluctuation pattern, while the histogram includes similar residual values on both ends. The residuals fluctuate between 0 and expand with time. This suggests that naive may not be an ideal method for this dataset since adjacent periods does not have a similar pattern.
+
+# fitted value and residuals plot
+plot(naive_f$fitted,naive_f$residuals)
+# actual values and residuals plot
+plot(naive_f$x,naive_f$residuals)
+# ACF for residuals
+Acf(naive_f$residuals)
+# The ACF for the residuals suggests that the residuals are seasonal and have a trend. This means the naive method cannot capture the seasonal and trend pattern of the dataset.
+
+# print five accuracy measures
+naive_ac <- accuracy(naive_f)
+naive_ac
+# Make forecast
+naive_forecast <- forecast(naive_f,h=12)
+
+# show time series table for next year
+naive_forecast
+
+# show time series plot for next year
+plot(naive_forecast)
+
+# Summary: Accuracy measures show low ME yet high RMSE and MAE, suggesting the model overestimate and underestimate equally. The resiual plot also suggests that the residual never stays at 0. The MAPE is high, at 26%.The model cannot capture the seasonal and trend patterns of the data. Therefore, the naive model is not suitable for forecasting the sales for this healthcare product.
+
+# the predicted value will be the same, at 10151.93 over the next year.
+```
+```{r}
+# Moving average
+plot(ts_sales_subset, xlab="Time",ylab="Sales volume")
+
+# I am using the simple moving average
+# SMA: n =3, in red
+sma_3 <- SMA(ts_sales_subset,n= 3)
+lines(sma_3, col='red')
+
+# SMA: n =6, in blue
+sma_6 <- SMA(ts_sales_subset,n= 6)
+lines(sma_6, col='blue')
+
+# SMA: n =9, in green
+sma_9 <- SMA(ts_sales_subset,n= 9)
+lines(sma_9, col='green')
+
+# show accuracy measures to compare the models
+sma3_ac <- accuracy(sma_3,ts_sales_subset)
+sma6_ac <- accuracy(sma_6,ts_sales_subset)
+sma9_ac <- accuracy(sma_9,ts_sales_subset)
+sma3_ac
+sma6_ac
+sma9_ac
+
+# Accuracy measures go up as the moving average order goes up. The simple moving average with n=3 performs the best in this case. I will use this model to generate forecasts for the next 12 months.
+
+sma3_forecast <- forecast(sma_3,h=12)
+plot(sma3_forecast,xlab="Time",ylab="Sales volume")
+lines(ts_sales_subset,col='black')
+lines(sma_3, col='red')
+lines(sma_6, col='blue')
+lines(sma_9, col='green')
+```
+```{r}
+# simple smoothing
+ses <- HoltWinters(ts_sales_subset,beta = FALSE,gamma=FALSE)
+ses_forecast <- forecast(ses,h=12)
+ses_forecast
+
+
+# alpha:
+ses$alpha 
+#the alpha for this model is 0.39. Alpha signifies a weight for 0.39 is given to the most recent observation, while a weight of 0.61 is given to the most recent forecast.
+
+# initial state:
+ses_forecast$fitted[2]
+# the initial state is 7539.993 for July 2022
+
+# residual plot
+
+plot(ses_forecast$residuals)
+# the residual plot shows a seasonal pattern, suggesting that seasonality may not be captured by the model.
+
+# residual histogram
+hist(ses_forecast$residuals)
+# the histogram is not normal, suggesting some patterns may not be captured by the model.
+
+# fitted value and residuals plot
+plot(ses_forecast$fitted,ses_forecast$residuals)
+# actual values and residuals plot
+plot(ses_forecast$x,ses_forecast$residuals)
+
+# ACF
+Acf(ses_forecast$residuals)
+# The ACF plot shows a seasonal pattern, suggesting that seasonality may not be captured by the model.
+
+# Accuracy measures
+ses_ac <- accuracy(ses$fitted,ts_sales_subset)
+ses_ac
+
+# forecast table and plot
+ses_forecast
+plot(ses_forecast)
+
+# Summary: The accuracy measures go up compared to the MA method. ME is 672, suggesting the model tend to overestimate. This will lead to excess inventory of this healthcare product. The residual analysis shows a seasonal pattern, meaning the HW cannot capture the seasonality.
+
+# the predicted values will be the same, at 14376.72 over the next year.
+```
+```{r}
+
+```
+```{r}
+# Holt Winters
+HW <- HoltWinters(ts_sales_subset)
+HW_f <- forecast(HW,h=12)
+
+attributes(HW)
+
+# alpha
+HW$alpha
+#the alpha for this model is 0.24. Alpha signifies a weight for 0.24 is given to the most recent observation, while a weight of 0.76 is given to the most recent forecast.
+
+# beta
+HW$beta
+# beta of the model is 0.9. This indicates that the the most recent trend pattern is given a very high weight, hence is more important.
+
+# gamma
+HW$gamma
+# gamma value for this model is 0, indicating the model does not take seasonality into accountability for the forcasts.
+
+
+#sigma
+
+# residual analyis
+
+# residual plot
+plot(HW_f$residuals)
+# the residual plot shows no pattern, indicating the trend and seasonality patterns are covered by the HW model.
+
+# histogram
+hist(HW_f$residuals)
+# due to a small amount of data, the residual plot does not show as a normal distribution, but the distribution is nearly normal, indicating the trend and seasonality patterns are covered by the HW model.
+
+# fitted value and residuals plot
+plot(HW_f$fitted,HW_f$residuals)
+# actual values and residuals plot
+plot(HW_f$x,HW_f$residuals)
+
+
+# ACF of residuals
+Acf(HW_f$residuals)
+# The ACF plot suggests that the residuals from the HW model is random.
+
+# measures of accuracy
+HW_ac <- accuracy(HW$fitted,ts_sales_subset)
+HW_ac
+
+# produce forecast using HW (table and plot)
+plot(HW_f)
+HW_f
+
+#summary: HoltWinters performs quite as good as the MA method and better than SES and Naive. Also, rediual analysis suggests that the model can capture both trend and seasonality patterns, proven by the randomness of residuals.
+
+# the predicted values follows the seasonal pattern discussed above, being high in March, June, September, and December.
+```
+
+```{r}
+# accuracy summary
+# I pick the MAE as the accuracy measures to compare among the methods
+naive_mae <- naive_ac['Training set', 'MAE']
+sma3_mae <- sma3_ac['Test set', 'MAE']
+sma6_mae <- sma6_ac['Test set', 'MAE']
+sma9_mae <- sma9_ac['Test set', 'MAE']
+ses_mae <- ses_ac['Test set', 'MAE']
+HW_mae <- HW_ac['Test set', 'MAE']
+
+mae_table <- data.frame(
+    Method = c("Naive", "SMA3", "SMA6", "SMA9", "SES", "HW"),
+    MAE = c(naive_mae, sma3_mae, sma6_mae, sma9_mae, ses_mae, HW_mae),
+    stringsAsFactors = FALSE
+)
+
+mae_table
+# Demand forecasts need high accuracy, that is why the MAE is useful since it amplifies the errors.
+
+# Naive: highest MAE, is not useful because adjacent data points are irrelevant.
+# SMA3: lowes MAE, is useful because demand foe this product follows a 3-month peaking pattern.
+# SMA6 and SMA9: are worse that SMA3 because of the incorrect number of periods.
+# SES: errors are high, this model tends to overestimate and cannot cover seasonality,
+# HW: second best, this model can capture both the trend and seasonality of the model.
+```
+```{r}
+#summary: the time series recently is showing fluctuations with higher values. I expect the fluctuation will countinue in the future since the higher demand pattern was set since the middle of 2022 for this product. The best models are SM3 and HW.
+```
+
+

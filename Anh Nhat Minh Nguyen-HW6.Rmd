@@ -1,0 +1,92 @@
+```{r}
+# Import the csv file into R
+library(readr)
+library(forecast)
+library(lubridate)
+library(readxl)
+birth_data <- read_csv('aggregated_data.csv')
+
+#Convert birth_data into a time series
+ts_birth <- ts(birth_data$Records, start = c(1985, 1), frequency = 12)
+
+```
+```{r}
+# I want to perform regression with the annual income dataset so I aggregate the monthly ts_birth dataset to an annual dataset.
+# The I convert the time series ts_birth_yearly back to a data frame with 2 columns "time" and "records". This is for scatter plot plotting. My scatter plot does not work with time series objects.
+ts_birth_yearly <- aggregate(ts_birth, nfrequency = 1, FUN = sum)
+
+birth_data_yearly <- data.frame(time = time(ts_birth_yearly), records = ts_birth_yearly)
+
+```
+
+```{r}
+# Import the US annual median income dataset from 1985 to 2015
+# The annual median income by household was adjusted for inflation
+
+inc <- read_excel('Anh Nhat Minh Nguyen-Household Income.xlsx')
+
+ts_inc <- ts(inc$MI,start = 1985, frequency =1)
+plot(ts_inc,, main='Median annual income 1985-2015',ylab="Income")
+```
+
+
+```{r}
+# Scatter plot for the number of births and median income
+# The plot indicates that there might be a positive correlation between the two variables, especially when annual income is larger than $65,000.
+
+plot(inc$MI,birth_data_yearly$records,
+     xlab='Annual Median Income',
+     ylab = 'Annual Birth Records')
+```
+
+```{r}
+# Perform regression and plot the regression line with data
+# Intercept: 3.456e+06
+# Coefficient: 7.136e+00
+
+lm1 <- lm(birth_data_yearly$records~inc$MI)
+
+lm1
+plot(inc$MI,birth_data_yearly$records, xlab='Annual Median Income',
+     ylab = 'Annual Birth Records')
+lines(inc$MI, lm1$fitted,col='blue',lwd=1)
+
+```
+```{r}
+# Model acceptance
+
+# The regression model overall is not significant due to the following reasons:
+
+# Predictor coefficient p-value = 0.324. This suggests the annual median income does not have a statistically significant relationship with the number of annual birth.
+
+# R-squared = 0.03352. This is a very low R-squared value, indicating that only 3.3 % of the variation in the birth records can be explained by the median annual income. This suggest median income contributes little to the decision the have babies of US families. The other 96.7 % of variation can be explained by numerous other factors such as heathcare indices (maternal support indices, etc), economic indices (unemployment rates, etc). I would suggest performing a multivariable regression for the number of annual births of the US. 
+
+#F-statistic = 1.006. This suggests that the MSR and MSE of the model are almost equal or the the variation explained by the model almost equals the variation caused by randomness.
+summary(lm1)
+```
+```{r}
+# Residual analysis
+
+# res: the variable to store the lm1's residuals
+par(mfrow=c(1,3))
+res <- residuals(lm1)
+
+# median income - residual plot
+plot(res~inc$MI, main='income-Residual',
+     xlab="Income",ylab="Residual")
+
+# fitted value - residual plot
+plot(res~fitted(lm1), main='Fitted value-Residual',xlab="Fitted values")
+
+# residual histogram
+hist(res, main="Residual histogram",xlab="Residual")
+
+
+# Observation: 
+# For the plot of residual against the predictor and the fitted value, the residuals show a random distribution. The residual histogram shows an almost uniform distribution of residuals. This can be explained by the weak relationship between the predictor and the response. The data is randomly scattered around the fitted linear line, which may leads to the random and consistently stable regression errors. The plot of residuals against the predictor shows no patterns such as linearity or exponentiality, suggesting that we do not miss any pattern by using the linear model. The resulted residuals are due to the inappropriateness of using only the median annual household income to predict the annual number of births in the US. 
+
+```
+
+
+
+

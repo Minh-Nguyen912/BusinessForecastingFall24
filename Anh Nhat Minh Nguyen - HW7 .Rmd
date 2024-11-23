@@ -1,0 +1,87 @@
+```{r}
+# import libraries and dataset
+library(forecast)
+library(readxl)
+
+data <- read.csv('aggregated_data.csv')
+ts_birth <- ts(data$Records,start=c(1985,1),frequency=12)
+plot(ts_birth, main="Birth time series", ylab = "Birth data")
+```
+
+```{r}
+# decompose the data
+birth_decomp <- decompose(ts_birth)
+birth_decomp$seasonal
+
+# decomposition suggests the data has a seasonal pattern
+```
+```{r}
+# find the number of differencing steps needed. The ndiffs function suggest 1 differencing step is needed for this model. After running the differencing, the time series appears more stable in terms of its level.  
+ndiffs(ts_birth)
+ts_birth_diff1 <- diff(ts_birth,difference=1)
+plot(ts_birth_diff1, main = "Differencing 1", ylab="Differenced data")
+
+# display the time series, PACF, and ACF charts
+par(mar=c(5,5,4,2)) # adjust the margins so that tha charts can be shown
+tsdisplay(ts_birth)
+# The ACF chart suggests that the time series has an annual seasonality pattern
+```
+```{r}
+# perfrom Auto Arima on the time series
+fit <- auto.arima(ts_birth, trace=TRUE, stepwise=FALSE)
+```
+
+```{r}
+# The result suggests that the time series has an annual seasonality pattern. The best ARIMA model is selected based on the AIC index. The selected model is ARIMA(4,1,0)(0,1,1)[12], which has the lowest AIC. Model explanation:
+
+# ARIMA(4,1,0): the non-seasonal component of the model. q= 4 (the AR part): the model will select 4 previous lags to predict a future value. d = 1 (the I part): the time series was differenced once before being put into the model. q = 0 (the MA part): no forecasts errors from the previous periods are included in the model.
+
+# (0,1,1): handles the seasonal pattern of the model. The indices suggests 0 corresponding seasonal data is included in the model, the model should be seasonally differenced by 1 time, and 1 previous forecast error will be included in the model.
+
+# [12]: the seasonal pattern is annual.
+```
+
+```{r}
+# Residual analysis
+
+# ACF
+Acf(fit$residuals, main = "Residual ACF")
+
+# time series plot for residuals
+plot(ts(residuals(fit)), main = "Resdiuals time series",
+     ylab="Residuals")
+
+# residuals histogram
+hist(fit$residuals, main ="Residuals histogram",
+     xlab="Residuals")
+
+# Ljung box test for residual
+Box.test(residuals(fit), lag=20, type='Ljung')
+
+# diagnostic check 
+par(mar=c(4,4,2,1))
+tsdiag(fit)
+ 
+# While the residuals ACF suggests no trend or seasonality and the histograms' shape is close to a normal distrbitution, other analysis on the residuals show that the seasonality pattern is not fully captured by the ARIMA model. The residuals time series appear to have seasonality and the Ljung Box analysis show a p-value of nearly zero, suggesting the residuals are correlated. The Ljung Box statistic shows that the model does not show correlation in residuals until lag 9. I would suggest manually adjust the parameters of the ARIMA to capture more seasonality.
+```
+
+```{r}
+# Forecast and plot
+fit_f <- forecast(fit,h=5, level=c(99.5))
+
+# Fitted and actual data
+plot(ts_birth, main="Data and forecast", ylab="Birth data")
+lines(fit_f$fitted,col='red')
+
+# 5-period forecast
+plot(fit_f, main="5-period forecast", ylab="Birth data")
+
+# accuracy measures
+accuracy(fit_f)
+
+# Despite not being able to fully capture the time series' seasonality, ARIMA performs well on the birth data with high accuracy. The forecasts by average are off 1.16% on average compared to the actual data. The absolute errors such as RMSE or RME are not high compared to the magnitude of birth records. The negative ME suggests that the ARIMA model tends to over-predict.
+
+```
+
+
+

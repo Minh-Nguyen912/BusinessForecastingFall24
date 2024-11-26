@@ -1,0 +1,275 @@
+```{r}
+library(forecast)
+library(readxl)
+library(TTR)
+
+data <- read.csv('aggregated_data.csv')
+ts_birth <- ts(data$Records,start=c(1985,1),frequency=12)
+plot(ts_birth, main="Birth time series", ylab = "Birth data")
+```
+```{r}
+data
+```
+
+```{r}
+Acf(ts_birth, lag.max=48, main = "Birth data ACF")
+```
+
+```{r}
+fivenum(ts_birth)
+mean(ts_birth)
+
+birth_mean <- mean(ts_birth)  
+birth_median <- median(ts_birth)
+
+
+boxplot(ts_birth, main="US birth data box plot",ylab="Birth records")
+hist(ts_birth, main="Birth data histogram",xlab="Birth records")
+abline(v = birth_mean, col = "red", lwd = 1, lty = 1)   
+abline(v = birth_median, col = "blue", lwd = 1, lty = 1)
+```
+```{r}
+decomp <- decompose(ts_birth)
+plot(decomp)
+```
+```{r}
+attributes(decomp)
+decomp$trend
+```
+
+```{r}
+decomp$seasonal
+decomp$type
+```
+```{r}
+s_adj <- seasadj(decomp)
+plot(ts_birth,
+      main = 'Seasonally adjusted time series',
+      xlab = 'Time',
+      ylab = 'Birth records')
+lines(s_adj, col='red')
+```
+
+```{r}
+naive_f <- naive(ts_birth,60)
+
+plot(naive_f$residuals, xlab="Time", ylab="Residuals")
+hist(naive_f$residuals, xlab="Residuals", main="Residuals histogram")
+
+```
+```{r}
+naive_f$fitted
+naive_f$residuals
+
+plot(naive_f$residuals~naive_f$fitted, main = "Residual-Fitted values plot",ylab="Residuals",xlab="Fitted values")
+plot(naive_f$residuals~naive_f$x, main = "Residual-Actual values plot",ylab="Residuals",xlab="Actual values")
+Acf (naive_f$residuals, lag.max=48, main="Residuals ACF")
+```
+```{r}
+naive_ac <- accuracy(naive_f)
+naive_forecast <- forecast(naive_f,h=12)
+plot(ts_birth, main = "Birth time series",ylab="Birth records")
+lines(naive_forecast$mean, col='red')
+
+plot(naive_forecast)
+```
+
+```{r}
+# Moving average
+plot(ts_birth, xlab="Time",ylab="Birth Records", main = "Time series and forecasts")
+
+# I am using the simple moving average
+# SMA: n =3, in red
+sma_3 <- SMA(ts_birth,n= 3)
+lines(sma_3, col='red')
+sma3_f <- forecast(sma_3,h=60)
+
+# SMA: n =6, in blue
+sma_6 <- SMA(ts_birth,n= 6)
+lines(sma_6, col='blue')
+sma6_f <- forecast(sma_6,h=60)
+
+# SMA: n =12, in green
+sma_12 <- SMA(ts_birth,n= 12)
+lines(sma_12, col='green')
+sma12_f <- forecast(sma_12,h=60)
+
+plot(sma3_f)
+plot(sma6_f)
+plot(sma12_f)
+
+```
+```{r}
+plot(sma3_f$residuals, xlab="Time", ylab="Residuals")
+hist(sma3_f$residuals, xlab="Residuals", main="Residuals histogram")
+plot(sma3_f$residuals~sma3_f$fitted, main = "Residual-Fitted values plot",ylab="Residuals",xlab="Fitted values")
+plot(sma3_f$residuals~sma3_f$x, main = "Residual-Actual values plot",ylab="Residuals",xlab="Actual values")
+Acf(sma3_f$residuals,lag.max=48,main="Residuals ACF")
+
+sma3_f$residuals
+```
+```{r}
+plot(sma6_f$residuals, xlab="Time", ylab="Residuals")
+hist(sma6_f$residuals, xlab="Residuals", main="Residuals histogram")
+plot(sma6_f$residuals~sma6_f$fitted, main = "Residual-Fitted values plot",xlab="Residuals",ylab="Fitted values")
+plot(sma6_f$residuals~sma6_f$x, main = "Residual-Actual values plot",xlab="Residuals",ylab="Actual values")
+
+attributes(sma6_f)
+sma6_f$residuals
+```
+```{r}
+plot(sma12_f$residuals, xlab="Time", ylab="Residuals")
+hist(sma12_f$residuals, xlab="Residuals", main="Residuals histogram")
+plot(sma12_f$residuals~sma12_f$fitted, main = "Residual-Fitted values plot",xlab="Residuals",ylab="Fitted values")
+plot(sma12_f$residuals~sma12_f$x, main = "Residual-Actual values plot",xlab="Residuals",ylab="Actual values")
+```
+
+```{r}
+ses <- HoltWinters(ts_birth,beta = FALSE,gamma=FALSE)
+ses_forecast <- forecast(ses,h=60)
+```
+
+```{r}
+ses$alpha
+
+ses_forecast$fitted[2]
+
+sd(ses_forecast$residuals)
+```
+
+```{r}
+
+plot(ses_forecast$residuals, xlab="Time", ylab="Residuals")
+hist(ses_forecast$residuals, xlab="Residuals", main="Residuals histogram")
+Acf (ses_forecast$residuals,lag.max=48,main="Residuals ACF")
+
+
+plot(ses_forecast$residuals~naive_f$fitted, main = "Residual-Fitted values plot",ylab="Residuals",xlab="Fitted values")
+plot(ses_forecast$residuals~naive_f$x, main = "Residual-Actual values plot",ylab="Residuals",xlab="Actual values")
+
+
+
+```
+```{r}
+plot(ses_forecast, main ="Simple Exponential Smoothing forecast")
+```
+```{r}
+plot(ts_birth, main="Actual data & forecasts",ylab="Birth records")
+lines(ses_forecast$fitted,col='red')
+```
+
+```{r}
+HW <- HoltWinters(ts_birth)
+HW_f <- forecast(HW,h=60)
+
+HW$alpha
+HW$beta
+HW$gamma
+
+plot(ts_birth, main="Actual data & forecasts",ylab="Birth records")
+lines(HW_f$fitted,col='red')
+```
+
+```{r}
+plot(HW_f$residuals, xlab="Time", ylab="Residuals")
+hist(HW_f$residuals, xlab="Residuals", main="Residuals histogram")
+Acf (HW_f$residuals, lag.max=48, main="Residuals ACF")
+
+
+plot(HW_f$residuals~naive_f$fitted, main = "Residual-Fitted values plot",ylab="Residuals",xlab="Fitted values")
+plot(HW_f$residuals~naive_f$x, main = "Residual-Actual values plot",ylab="Residuals",xlab="Actual values")
+```
+
+```{r}
+plot(HW_f)
+```
+
+```{r}
+auto_fit <- auto.arima(ts_birth,trace=TRUE,stepwise=FALSE)
+auto_f <- forecast(auto_fit,h=60,level=c(99.5)) 
+plot(auto_f)
+
+plot(ts_birth, main="Actual data & forecasts",ylab="Birth records")
+lines(auto_f$fitted,col='red')
+
+```
+
+```{r}
+plot(auto_f$residuals, xlab="Time", ylab="Residuals")
+hist(auto_f$residuals, xlab="Residuals", main="Residuals histogram")
+Acf (auto_f$residuals, lag.max = 48, main = "Residuals ACF")
+
+
+plot(auto_f$residuals~naive_f$fitted, main = "Residual-Fitted values plot",ylab="Residuals",xlab="Fitted values")
+plot(auto_f$residuals~naive_f$x, main = "Residual-Actual values plot",ylab="Residuals",xlab="Actual values")
+
+
+```
+```{r}
+mean_f <- meanf(ts_birth,60)
+
+plot(mean_f$residuals, xlab="Time", ylab="Residuals")
+hist(mean_f$residuals, xlab="Residuals", main="Residuals histogram")
+
+plot(mean_f$residuals~mean_f$fitted, main = "Residual-Fitted values plot",ylab="Residuals",xlab="Fitted values")
+plot(mean_f$residuals~mean_f$x, main = "Residual-Actual values plot",ylab="Residuals",xlab="Actual values")
+Acf (mean_f$residuals, lag.max=48, main="Residuals ACF")
+
+plot(mean_f)
+
+```
+```{r}
+stl_birth <- stl(ts_birth, s.window='periodic')
+stl_forecast <- forecast(stl_birth, h=60)
+
+plot(stl_forecast$residuals, xlab="Time", ylab="Residuals")
+hist(stl_forecast$residuals, xlab="Residuals", main="Residuals histogram")
+
+plot(stl_forecast$residuals~stl_forecast$fitted, main = "Residual-Fitted values plot",ylab="Residuals",xlab="Fitted values")
+plot(stl_forecast$residuals~stl_forecast$x, main = "Residual-Actual values plot",ylab="Residuals",xlab="Actual values")
+Acf (stl_forecast$residuals, lag.max=48,main="Residuals ACF")
+
+plot(stl_forecast)
+```
+```{r}
+plot(ts_birth, main="Actual data & forecasts",ylab="Birth records")
+lines(stl_forecast$fitted,col='red')
+```
+
+```{r}
+naive_ac <- accuracy(naive_f)
+mean_ac <- accuracy(mean_f)
+sma3_ac <- accuracy(sma_3,ts_birth)
+sma6_ac <- accuracy(sma_6,ts_birth)
+sma12_ac <- accuracy(sma_12,ts_birth)
+ses_ac <- accuracy(ses$fitted,ts_birth)
+HW_ac <- accuracy(HW$fitted,ts_birth)
+stl_ac <- accuracy(stl_forecast$fitted,ts_birth)
+arima_ac <- accuracy(auto_f)
+```
+
+```{r}
+naive_mape <- naive_ac['Training set', 'MAPE']
+mean_mape <- mean_ac['Training set', 'MAPE']
+sma3_mape <- sma3_ac['Test set', 'MAPE']
+sma6_mape <- sma6_ac['Test set', 'MAPE']
+sma12_mape <- sma12_ac['Test set', 'MAPE']
+ses_mape <- ses_ac['Test set', 'MAPE']
+HW_mape <- HW_ac['Test set', 'MAPE']
+stl_mape <- stl_ac['Test set', 'MAPE']
+arima_mape <- arima_ac['Training set','MAPE']
+```
+
+```{r}
+mape_table <- data.frame(
+    Method = c("Naive","Mean", "SMA3", "SMA6", "SMA12", "SES", "HW","STL","ARIMA"),
+    MAPE = c(naive_mape, mean_mape,sma3_mape, sma6_mape, sma12_mape, ses_mape, HW_mape,stl_mape,arima_mape),
+    stringsAsFactors = FALSE
+)
+
+mape_table
+```
+
+
+
+

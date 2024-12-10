@@ -1,0 +1,502 @@
+```{r}
+library(readxl)
+library(readr)
+library(forecast)
+library(lubridate)
+library(TTR)
+```
+
+```{r}
+# import data
+file <- read_csv('TOTALSA.csv')
+file
+```
+```{r}
+# convert to a time series
+ts_sales <- ts(file[2],start=c(2019,1), frequency=12)
+ts_sales
+```
+
+```{r}
+# Plot an inference
+# Time series plot and ACF
+plot(ts_sales, xlab="Time",ylab="Sales")
+Acf(ts_sales)
+
+# Inference: The time series show huge fluctuations from the beginning of 2020 to around August 2022. Afterwards, a new normal state was set. The ACF does not suggest any pattern of the time series.
+```
+
+```{r}
+# Central Tendency
+# for min-1st Q - median - 3rd Q - Max: use fivenum()
+# for the mean: use mean()
+
+# Min: 8.9440
+# 1st Q: 14.1680
+# Median: 15.9385
+# 3rd Q: 16.9680
+# Max: 18.6970
+# Mean: 15.6116
+
+fivenum(ts_sales)
+mean(ts_sales)
+
+# box plot: the box plot suggests that the data is slightly left-skewed. 75% of the data lies between 14 and 17. The data does not show any outliers.
+boxplot(ts_sales, main="Sales box plot",ylab="Sales volume")
+```
+
+```{r}
+# Decomposition
+# plot the decomposition
+decomp <- decompose(ts_sales)
+plot(decomp)
+```
+
+```{r}
+attributes(decomp)
+```
+
+```{r}
+decomp$seasonal
+```
+
+```{r}
+decomp$type
+```
+
+```{r}
+# observations from decomposition
+# Seasonal indices range from -0.4 to 0.7. The data has a monthly seasonal pattern. However, the difference between each months does not differ significantly as for the low and relatively equal seasonal indices. Also, the low seasonal indices suggest the seasonal values do not differ much from the overall trend.
+
+# The decomposition is additive.
+
+# Monthly indices:
+# Jan: 0.72247517 - highest
+# Feb: 0.43065226
+# Mar: -0.17313941
+# April: -0.51546233
+# May: -0.37573316 - lowest
+# Jun: -0.28201441
+# Jul: 0.05948767
+# Aug: -0.06814566
+# Sep: -0.09667066
+# Oct: 0.08566267
+# Nov: 0.15813142
+# Dec: 0.05475642
+
+# The highest seasonal values are for January, while the lowest are for May. Other high monthly values come from February and other low monthly values come from June and March.
+
+# The difference between monthly sales is not significant for this data set, hence there is little pattern that can be infered from seasonal data. One inference I can get from the data is a sudden plummets in car sales in the first halves of 2020 and 2021, which are identical to the worldwide outbreaks of Covid. The new normal state for car sales is slightly lower than that before Covid.
+```
+
+```{r}
+# seasonally adjusted plot: As discussed above, due to the low seasonal indices, seasonality does not have big effects on the value of time series.
+s_adj <- seasadj(decomp)
+plot(ts_sales,
+      main = 'Seasonally adjusted time series',
+      xlab = 'Time',
+      ylab = 'Sales volume')
+lines(s_adj, col='red')
+```
+
+```{r}
+# Trim the data for forecast
+# Revisit time series: a new normal level of car sales was set since August 2022. While the data became even more stable since Januaray 2023, the overall growing trend was obseref since August 2022. Moreover, cutting the data from August 2022 gives the forecasting models more input data. Therefore, the decision is to trim the data from August 2022. 
+plot(ts_sales, xlab="Time",ylab="Sales")
+
+# the trimmed time series used for forecasting, starting from August 2022. This is used due to its relevance to current and future car sales.
+ts_sales_subset <- window(ts_sales, start =c(2022,8))
+
+plot(ts_sales_subset, xlab="Time",ylab="Sales")
+Acf(ts_sales_subset)
+```
+
+```{r}
+# naive method
+# naive forecast output: future values equal the value for 2024/2: 16.191
+naive_f <- naive(ts_sales_subset,12)
+naive_f
+```
+
+```{r}
+# residual analysis and histogram
+plot(naive_f$residuals, xlab="Time", ylab="Residuals")
+hist(naive_f$residuals, xlab="Residuals", ylab="Frequency")
+
+# the residual plot shows a fluctuating pattern around 0 and the histogram suggests that there are more negative errors. The naive model is more likely to over-predict the sales.
+```
+
+```{r}
+# fitted values vs. residuals plot
+plot(naive_f$fitted[-1],naive_f$residuals[-1],xlab="fitted values",ylab="residuals")
+
+# actual values vs. residuals plot
+plot(naive_f$x[-1],naive_f$residuals[-1],xlab="actual values",ylab="residuals")
+
+# the scatter plot of residuals against fitted and actual values do not show much pattern. Resdiuals are relatively similar at different levels of fitted and actual values.
+
+# residual ACF plot: the ACF plot does not suggest any pattern for the residuals
+Acf(naive_f$residuals)
+```
+
+```{r}
+# 5 acuuracy measures
+naive_ac <- accuracy(naive_f)
+naive_ac
+```
+
+```{r}
+# Make forecast
+naive_forecast <- forecast(naive_f,h=12)
+naive_forecast
+
+# show time series table for next year
+plot(naive_forecast)
+```
+
+```{r}
+# summary: The residual analysis does not show much pattern. The model provides forecasts with low accuracy measures. One pattern to note is that while there are more negative residuals, the ME is positive. This suggest if we use the naive forecast, the deviation will be bigger on months with high actual sales. The time seires over the next year is 16.191.
+```
+
+```{r}
+# simple moving average
+# plot the trimmed time series
+plot(ts_sales_subset, xlab="Time",ylab="Sales volume")
+
+# SMA: n =3, in red
+sma_3 <- SMA(ts_sales_subset,n= 3)
+lines(sma_3, col='red')
+
+# SMA: n =6, in blue
+sma_6 <- SMA(ts_sales_subset,n= 6)
+lines(sma_6, col='blue')
+
+# SMA: n =9, in green
+sma_9 <- SMA(ts_sales_subset,n= 9)
+lines(sma_9, col='green')
+```
+
+```{r}
+# show accuracy measures to compare the models
+sma3_ac <- accuracy(sma_3,ts_sales_subset)
+sma6_ac <- accuracy(sma_6,ts_sales_subset)
+sma9_ac <- accuracy(sma_9,ts_sales_subset)
+
+sma3_ac
+sma6_ac
+sma9_ac
+
+# The residuals go up as the moving average order goes up. Therefore, the best moving average model for this time series is SMA3.
+```
+
+```{r}
+# Forecast for the next 12 months using MA(3)
+sma3_forecast <- forecast(sma_3,h=12)
+plot(sma3_forecast,xlab="Time",ylab="Sales volume")
+lines(ts_sales_subset,col='darkgreen')
+```
+
+```{r}
+# simple smoothing
+ses <- HoltWinters(ts_sales_subset,beta = FALSE,gamma=FALSE)
+ses_forecast <- forecast(ses,h=12)
+ses_forecast
+```
+```{r}
+# alpha
+ses$alpha
+#the alpha for this model is 0.56. Alpha signifies a weight for 0.56 is given to the most recent observation, while a weight of 0.44 is given to the most recent forecast.
+
+# the initial state, at time point September 2022, is 14.064.
+ses_forecast$fitted[2]
+
+# The sigma is 0.56. This signifies the standard deviation of the SES model's residuals.
+sd(ses_forecast$residuals[-1],na.rm=TRUE)
+```
+
+```{r}
+# residual analysis
+
+# residual plot
+plot(ses_forecast$residuals)
+
+# residual histogram
+hist(ses_forecast$residuals, xlab='residuals')
+
+# The residual plot shows a fluctuating pattern. The residual histogram shows a nearly normal distribution. Those insights suggests most patterns of the time series were captured by the SES model.
+
+# fitted values vs. residuals plot
+plot(ses_forecast$fitted[-1],ses_forecast$residuals[-1],xlab="fitted values",ylab="residuals")
+
+# actual values vs. residuals plot
+plot(ses_forecast$x[-1],ses_forecast$residuals[-1],xlab="actual values",ylab="residuals")
+
+# the plots are randomly scattered, suggesting no relationship between the residuals and the fitted or actual values.
+
+# residuals ACF: The ACF suggests that the residuals are random.
+Acf(ses_forecast$residuals)
+```
+
+```{r}
+# Accuracy measures
+ses_ac <- accuracy(ses$fitted,ts_sales_subset)
+ses_ac
+```
+
+```{r}
+# forecast table and plot
+ses_forecast
+plot(ses_forecast)
+```
+
+```{r}
+# summary:
+# The accuracy for SES is slightly lower than Naive's and slightly higher than SMA(3)'s. The residual analysis shows that the residuals are random and normally distributed, suggesting the SES model's ability to capture the time series' patterns.
+
+# the predicted values will be the same, at 16.02482 over the next year.
+```
+
+```{r}
+# Holt Winters: the trimmed data from August 2022 is not sufficient for HoltWinters so I created another subset, starting from March 2022, only for the Holt Winters model.
+ts_sales_subset2 <- window(ts_sales, start =c(2022,3))
+HW <- HoltWinters(ts_sales_subset2)
+HW_f <- forecast(HW,h=12)
+```
+
+```{r}
+HW_f$model
+
+# alpha
+HW$alpha
+#the alpha for this model is 0.31. Alpha signifies a weight for 0.31 is given to the most recent observation, while a weight of 0.69 is given to the most recent forecast.
+
+# beta
+HW$beta
+#the beta for this model is 0, suggesting no weight was given to the most recent trend pattern.
+
+# gamma
+HW$gamma
+#the gamma for this model is 0.1, showing a weight of 0.1 was given to the most recent seasonal pattern.
+
+# initial state for level: 16.45055443. This is the value of the level component at the first forecast period.
+
+# initial state for trend: 0.15094959. This is the value of the trend component at the first forecast period.
+
+# initial state for seasonality: the initial state for each period shows the seasonal value for the first forecast of each period.
+# initial s1:0.07653087
+# initial s2:0.71255593
+# initial s3:0.11367988
+# initial s4:0.43167155
+# initial s5:0.19949497
+# initial s6:-0.23073637
+# initial s7:-0.41112482
+# initial s8:0.31016469
+# initial s9:-0.17075246
+# initial s10:-1.0986936
+# initial s11:0.21554611
+# initial s12:-0.09174294
+
+# The sigma is 0.85. This signifies the standard deviation of the SES model's residuals.
+sd(HW_f$residuals[-1],na.rm=TRUE)
+```
+
+```{r}
+# residual analysis
+# residual plot
+plot(HW_f$residuals)
+
+# histogram
+hist(HW_f$residuals, xlab='residuals')
+
+# The residual plot shows little pattern. The histogram shows that there are more positive residuals, suggesting the HW model is more likely to under-predict car sales.
+
+# fitted values vs. residuals
+plot(HW_f$fitted[-1],HW_f$residuals[-1],xlab="fitted values",ylab="residuals")
+
+# actual values vs. residuals
+plot(HW_f$x[-1],HW_f$residuals[-1],xlab="actual values",ylab="residuals")
+
+# There are patterns in the scatter plots of residuals againts fitted and actual values. While the resdiuals decrease as fitted values increase, the opposite pattern is observed in the residuals-actual values plot.
+
+# ACF plot: The ACF plot does not suggest any pattern of HW's residuals
+Acf(HW_f$residuals)
+
+
+```
+
+```{r}
+HW_ac <- accuracy(HW$fitted,ts_sales_subset)
+HW_ac
+```
+
+```{r}
+# produce forecast using HW (table and plot)
+HW_f
+plot(HW_f)
+```
+
+```{r}
+# The errors increase for Holt Winters, which is not a typical pattern. This can be explained by the data fed in order to run this model. 5 months of the irrelevant data was included, which leads to the decreased performance of the model.
+```
+
+```{r}
+# ARIMA or Box-Jenkins
+
+# Decomposition suggests the data has a seasonal pattern, making it not stationary. Also, the ndiff function recommends differencing the data for 1 time to make it stationary.
+
+# Due to the weak seasonality difference between months, I speculate seasonality will not be included in the ARIMA model. We can verify once we run the auto.arima() function later.
+
+ndiffs(ts_sales_subset)
+
+# differnce the data for 1 time: the data appears to be more stationary as the climbing trend disappears.
+ts_sales_diff1 <- diff(ts_sales_subset,difference=1)
+plot(ts_sales_diff1, main = "Differencing 1", ylab="Differenced data")
+```
+
+```{r}
+# ACF and PACF of the differenced series
+par(mar=c(4,4,2,1))
+tsdisplay(ts_sales_diff1)
+
+# Based on the ACF and PACF, the possible models can be 
+# ARIMA (2,1,2), ARIMA(1,1,1),. etc Overall the model is ARIMA(p,1,q) in which 0<= p <= 2 and 0<= 1 <= 2
+
+```
+
+```{r}
+# AIC, BIC, and sigma2 for ARIMA (2,1,2)
+fit212 <- arima(ts_sales_diff1, order=c(2,1,2))
+
+fit212$aic
+fit212$sigma2
+# BIC is not included in the object attributes
+
+# AIC, BIC, and sigma2 for ARIMA (1,1,1)
+fit111 <- arima(ts_sales_diff1, order=c(1,1,1))
+
+fit111$aic
+fit111$sigma2
+# BIC is not included in the object attributes
+
+# I would select ARIMA(2,1,2) out of the 2 tested models due to its lower AIC. The best model, however, can be selected by auto.arima()
+```
+
+```{r}
+# Perform Auto Arima
+fit <- auto.arima(ts_sales_subset, trace=TRUE, stepwise=FALSE)
+
+# The selected model is ARIMA(3,1,0), and yes, the seasonality component was not included. The coefficients of the new model:
+fit$coef
+
+# the three coefficients are -0.4295548, -0.1125667, and 0.4800743
+```
+
+```{r}
+# residual analysis
+
+# residual plot
+plot(ts(residuals(fit)), main = "Resdiuals time series",
+     ylab="Residuals")
+
+# residual histogram
+hist(fit$residuals, main ="Residuals histogram",
+     xlab="Residuals")
+
+# no patterns were detected via the residual plot and histogram.
+
+# fitted values vs. residuals
+plot(fit$fitted[-1],fit$residuals[-1],xlab="fitted values",ylab="residuals")
+
+# actual values vs. residuals
+plot(fit$x[-1],fit$residuals[-1],xlab="actual values",ylab="residuals")
+
+# no patterns were detected via the scatter plots.
+
+# residual ACF
+Acf(fit$residuals)
+# no patterns were detected via the ACF plots.
+```
+
+```{r}
+# accuracy measures
+arima_ac <- accuracy(fit)
+arima_ac
+```
+
+```{r}
+# 1-year forecast
+arima_f1 <- forecast(fit,h=12)
+arima_f1
+plot(arima_f1)
+
+# 2-year forecast
+arima_f2 <- forecast(fit,h=12)
+arima_f2
+plot(arima_f2)
+
+```
+
+```{r}
+# summary: The ARIMA(3,1,0) is by far the best model, with low accuracy measures. Also, no patterns of the model's residuals are detected. The forecast for the next 1 and 2 years shows a relatively stable trend with a slight seasonal patter. The values are expected to range between around 15.5 and 16.2.
+```
+
+```{r}
+# accuracy summary
+# accuracy table
+naive_ac
+sma3_ac
+sma6_ac
+sma9_ac
+ses_ac
+HW_ac
+arima_ac
+
+# turn the accuracu measures into vectors
+naive_am <- c(0.1181667,0.6545019,0.5260556,0.6908445,3.373114)
+sma3_am <- c(0.109,0.3976297,0.3048824,0.6577655,1.966152)
+sma6_am <- c(0.2814048,0.5401902,0.4402857,1.750479,2.760729)
+sma9_am <- c(0.3279495,0.6320681,0.4870404,1.99179,3.008762)
+ses_am <- c(0.1932433,0.577389,0.4415588,1.183697,2.83402)
+hw_am <- c(0.06842288,0.8204721,0.6406753,0.373629,4.020303)
+arima_am <- c(0.109564,0.4496964,0.3487188,0.676226,2.264)
+measures <- c('ME','RMSE','MAE','MPE','MAPE')
+
+# tabulate the table
+accuracy_table <- data.frame(
+  Measures=measures,
+  NAIVE = naive_am,
+  SMA3 = sma3_am,
+  SMA6 = sma6_am,
+  SMA9 = sma9_am,
+  SES = ses_am,
+  HW = hw_am,
+  ARIMA = arima_am)
+
+accuracy_table
+```
+
+```{r}
+# define each method:
+# naive: this method is cost-effective and is easy to implement. This would be helpful when the sales shifted suddenly at the beginning and the end of the Covide outbreak. However, for the new normal data, the model returns one of the higest accuracy measures.
+# sma3: This model by far gives the best MAPE, at only 1.97%. This is the best model for this time series.
+# sma6 and sma9: the moving averages are not suitable for this time series compared to sm3. Surprisingly, sm6 still performs better than some of the models.
+# ses: this model provides stable forecasts for future periods, which aligns with the set pattern for this data set. The time series suggests that the sales are becoming more stable.
+# HW: the model is not suittable for this data set due to the data size. In order to run the model, 5 months worth of irrelevant data has to be added, which affects the model's performance.
+# ARIMA: The model comes 2nd in terms of the accuracy. However, ARIMA costs more processing power than other model, making it less attractive. By far, this is still a great selection if the processing cost is disregarded.
+
+# ME: best: HW, worst: SMA9
+# RSME: best: SMA3, worst: HW
+# MAE: best: SMA3, worst: HW
+# MPE: best: HW, worst: SMA9
+# MAPE: best: SMA3, worst: HW
+
+# MAPE would the the best measure due to its ability to assess the deviation of the forecasts from the actual data.
+```
+
+```{r}
+# conclusion
+# A new normal of the time series was set after August 2022. Sales increase constantly since that time and have become more stable since the beginning of 2023. The forecasts suggests that car sales will not change much from the current level, at around 16 per month. The sales are expected to remain at this level in the near future.
+
+# My model picks are SMA3 and ARIMA. While ARIMA provides slightly more flexibility in the model parameters, SMA3 performs better ARIMA in both MAPE and processing memory required. To conclude, the best model is SM3.
+```
+
